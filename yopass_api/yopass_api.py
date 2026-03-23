@@ -130,19 +130,24 @@ class Yopass:
             }
         )
         headers = {
-            "Content-type": "application/json",
+            "Content-Type": "application/json",
         }
-        try:
-            response = requests.post(
-                urljoin(self._api, "/secret"),
-                data=payload,
-                headers=headers,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response.json().get("message", "")
-        except requests.exceptions.RequestException as _:
-            return ""
+        # Try to POST to yopass 13.0.0+ /create/secrets or fallback to /secrets
+        for path in ["/create/secret", "/secret"]:
+            try:
+                response = requests.post(
+                    urljoin(self._api, path),
+                    data=payload,
+                    headers=headers,
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+                # Newer response uses id, older is message
+                return data.get("id", "") or data.get("message", "")
+            except requests.exceptions.RequestException:
+                continue
+        return ""
 
     def fetch(self, secret_id: str, password: str) -> str:
         """Fetch secret from Yopass
